@@ -1,19 +1,24 @@
-package com.example.citypulse.data.repository
+package com.example.citypulse.repository
 
-import com.example.citypulse.data.local.PlaceDao
+import androidx.lifecycle.LiveData
+import com.example.citypulse.local.PlaceDao
 import com.example.citypulse.model.Place
-import kotlinx.coroutines.flow.Flow
+import com.example.citypulse.remote.APIService
 
-class PlaceRepository(private val placeDao: PlaceDao) {
+class PlaceRepository(private val apiService: APIService, private val placeDao: PlaceDao) {
 
-    // Récupère tous les lieux depuis la base de données Room
-    val allPlaces: Flow<List<Place>> = placeDao.getAllPlaces()
+    // La source de vérité est la base de données (LiveData)
+    val allPlaces: LiveData<List<Place>> = placeDao.getAllPlaces()
 
-    // Fonction pour insérer un lieu (utile pour les favoris)
-    suspend fun insert(place: Place) {
-        placeDao.insertPlace(place)
+    suspend fun refreshData(lat: Double, lon: Double, apiKey: String) {
+        try {
+            // 1. Appel réseau
+            val response = apiService.getNearbyPlaces(10000, lon, lat, apiKey)
+            // 2. Mise à jour automatique de la base locale
+            placeDao.insertPlaces(response)
+        } catch (e: Exception) {
+            // Si le réseau échoue, on ne fait rien : l'utilisateur verra
+            // les anciennes données déjà présentes dans Room
+        }
     }
-
-    // Plus tard, nous ajouterons ici la fonction pour appeler Retrofit
-    // suspend fun fetchPlacesFromNetwork() { ... }
 }

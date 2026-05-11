@@ -1,11 +1,12 @@
-
 package com.example.citypulse.ui.view
+
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import com.example.citypulse.R
 import com.example.citypulse.ui.viewmodel.MainViewModel
+import com.example.citypulse.model.Place // <--- VÉRIFIE CET IMPORT
 
 class MainActivity : AppCompatActivity() {
 
@@ -21,10 +22,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupObservers() {
-        viewModel.places.observe(this) { listDeLieux ->
-            // À chaque fois que la liste change, ce code s'exécute
-            if (listDeLieux.isNotEmpty()) {
-                Toast.makeText(this, "Nombre de lieux chargés : ${listDeLieux.size}", Toast.LENGTH_LONG).show()
+        // On observe le LiveData du ViewModel
+        viewModel.placesByLiveData.observe(this) { listDeLieux: List<Place>? ->
+            // L'ajout de ": List<Place>?" ci-dessus aide le compilateur à "inférer" le type
+            if (listDeLieux != null && listDeLieux.isNotEmpty()) {
+                Toast.makeText(
+                    this,
+                    "Nombre de lieux chargés : ${listDeLieux.size}",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }

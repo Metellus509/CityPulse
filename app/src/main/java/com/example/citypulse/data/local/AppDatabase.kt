@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.citypulse.local.PlaceDao
 import com.example.citypulse.model.Place
 
 // On définit les entités (tables) et la version de la base

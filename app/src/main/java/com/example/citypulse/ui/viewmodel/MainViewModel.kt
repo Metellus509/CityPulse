@@ -1,30 +1,48 @@
 package com.example.citypulse.ui.viewmodel
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.citypulse.data.local.AppDatabase
 import com.example.citypulse.model.Place
+import com.example.citypulse.remote.RetrofitInstance
+import com.example.citypulse.repository.PlaceRepository
+import kotlinx.coroutines.launch
 
+class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-class MainViewModel : ViewModel() {
+    private val repository: PlaceRepository
 
-    // On utilise MutableLiveData pour modifier les données en interne
-    private val _places = MutableLiveData<List<Place>>()
-
-    // On expose une LiveData immuable pour que la View (Activity) puisse l'observer
-    val places: LiveData<List<Place>> get() = _places
+    // On déclare la variable sans lui donner de valeur immédiatement
+    val placesByLiveData: LiveData<List<Place>>
 
     init {
-        // Pour l'instant, on charge des données de test
-        loadDemoPlaces()
+        // 1. Récupérer le DAO depuis la database (avec le bon package data.local)
+        val database = AppDatabase.getDatabase(application)
+        val dao = database.placeDao()
+
+        // 2. Récupérer l'API via ton Singleton
+        val apiService = RetrofitInstance.api
+
+        // 3. Initialiser le repository EN PREMIER
+        repository = PlaceRepository(apiService, dao)
+
+        // 4. Maintenant que le repository existe, on peut lier le LiveData
+        placesByLiveData = repository.allPlaces
+
+        // 5. Charger les données depuis l'API
+        loadPlaces()
     }
 
-    private fun loadDemoPlaces() {
-        // Simulation de données avant d'avoir Retrofit ou Room de prêt
-        val demoList = listOf(
-            Place("1", "Palais National", "Port-au-Prince", 18.543, -72.339, "Monument"),
-            Place("2", "MUPANAH", "Place des Héros", 18.544, -72.336, "Musée")
-        )
-        _places.value = demoList
+    private fun loadPlaces() {
+        viewModelScope.launch {
+            // Coordonnées de Port-au-Prince
+            val lat = 18.5392
+            val lon = -72.335
+            val apiKey = "5ae2e3f221c38a28845f05b6948ae2162f94d9b315e19c7766940257"
+
+            repository.refreshData(lat, lon, apiKey)
+        }
     }
 }
