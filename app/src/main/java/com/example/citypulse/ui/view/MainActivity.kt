@@ -28,56 +28,86 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        // 2. Lancement de l'observation des données
+        // 2. Observation des données du ViewModel
         setupObservers()
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // Configuration visuelle de la carte
-        val pap = LatLng(18.5392, -72.335) // Port-au-Prince
+        // Configuration initiale de la vue sur Port-au-Prince
+        val pap = LatLng(18.5392, -72.335)
         mMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(pap, 12f))
-        mMap?.uiSettings?.isZoomControlsEnabled = true
 
-        // SECURITÉ : Si le ViewModel a déjà reçu les données avant que la carte ne soit prête,
-        // on force l'affichage maintenant.
-        viewModel.placesByLiveData.value?.let { lieux ->
-            if (lieux.isNotEmpty()) {
-                updateMarkersOnMap(lieux)
+        // Activation des outils de la carte
+        mMap?.uiSettings?.isZoomControlsEnabled = true
+        mMap?.uiSettings?.isMapToolbarEnabled = true
+
+        // --- GESTION DES CLICS ---
+
+        // A. Clic simple sur un marqueur (affiche un Toast rapide)
+        mMap?.setOnMarkerClickListener { marker ->
+            val place = marker.tag as? Place
+            place?.let {
+                Toast.makeText(this, "Lieu : ${it.name}", Toast.LENGTH_SHORT).show()
+            }
+            false // Permet d'afficher aussi la bulle d'info par défaut
+        }
+
+        // B. Clic sur la bulle d'info (ouvre les détails)
+        mMap?.setOnInfoWindowClickListener { marker ->
+            val place = marker.tag as? Place
+            place?.let {
+                ouvrirDetailsLieu(it)
+            }
+        }
+
+        // Vérifier si des données sont déjà arrivées avant que la carte ne soit prête
+        viewModel.placesByLiveData.value?.let { list ->
+            if (list.isNotEmpty()) {
+                updateMarkersOnMap(list)
             }
         }
     }
 
     private fun setupObservers() {
         viewModel.placesByLiveData.observe(this) { listDeLieux ->
-            if (listDeLieux != null && listDeLieux.isNotEmpty()) {
-                // Petit message pour confirmer la réception des données
-                Toast.makeText(this, "${listDeLieux.size} lieux chargés", Toast.LENGTH_SHORT).show()
+            if (!listDeLieux.isNullOrEmpty()) {
+                // On informe l'utilisateur du nombre de lieux chargés
+                Toast.makeText(this, "${listDeLieux.size} lieux trouvés à Port-au-Prince", Toast.LENGTH_SHORT).show()
 
-                // On met à jour la carte
+                // Dessiner les points sur la carte
                 updateMarkersOnMap(listDeLieux)
             }
         }
     }
 
     private fun updateMarkersOnMap(lieux: List<Place>) {
-        // On vérifie que mMap n'est pas nul avant de dessiner
         mMap?.let { map ->
-            map.clear() // On évite de dupliquer les marqueurs
+            map.clear() // On nettoie pour éviter les doublons au rafraîchissement
 
             for (place in lieux) {
-                // Vérification si les coordonnées ne sont pas à 0.0 (soucis de parsing JSON fréquent)
+                // On s'assure que les coordonnées sont valides (Parsing JSON corrigé)
                 if (place.lat != 0.0 && place.lon != 0.0) {
                     val position = LatLng(place.lat, place.lon)
-                    map.addMarker(
+
+                    val marker = map.addMarker(
                         MarkerOptions()
                             .position(position)
                             .title(place.name)
-                            .snippet("Lieu touristique")
+                            .snippet("Appuyez ici pour voir les détails")
                     )
+
+                    // CRUCIAL : On attache l'objet Place au marqueur pour le récupérer au clic
+                    marker?.tag = place
                 }
             }
         }
+    }
+
+    private fun ouvrirDetailsLieu(place: Place) {
+        // Pour ton projet de sortie, c'est ici qu'on lancera une nouvelle page
+        // ou qu'on affichera une description complète.
+        Toast.makeText(this, "Chargement des détails pour ${place.name}...", Toast.LENGTH_LONG).show()
     }
 }
