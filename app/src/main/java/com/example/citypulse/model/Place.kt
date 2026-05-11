@@ -7,16 +7,22 @@ import com.google.gson.annotations.SerializedName
 @Entity(tableName = "places")
 data class Place(
     @PrimaryKey
-    @SerializedName("xid") // Nom dans le JSON de l'API
-    val id: String,
+    @SerializedName("xid") val id: String,
+    @SerializedName("name") val name: String,
 
-    @SerializedName("name")
+    // Ces champs seront remplis manuellement dans le Repository
+    var lat: Double = 0.0,
+    var lon: Double = 0.0
+)
+
+// Cette classe sert à lire le JSON d'OpenTripMap qui est structuré différemment
+data class OpenTripMapResponse(
+    val xid: String,
     val name: String,
+    val point: Point // L'API met les coordonnées ici !
+)
 
-    // Pour extraire la latitude/longitude du JSON imbriqué d'OpenTripMap
-    // On simplifie ici pour la base de données locale
+data class Point(
     val lat: Double,
-    val lon: Double,
-
-    val isFavorite: Boolean = false
+    val lon: Double
 )

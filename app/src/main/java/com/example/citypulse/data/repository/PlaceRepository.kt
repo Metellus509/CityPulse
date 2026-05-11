@@ -12,13 +12,21 @@ class PlaceRepository(private val apiService: APIService, private val placeDao: 
 
     suspend fun refreshData(lat: Double, lon: Double, apiKey: String) {
         try {
-            // 1. Appel réseau
             val response = apiService.getNearbyPlaces(10000, lon, lat, apiKey)
-            // 2. Mise à jour automatique de la base locale
-            placeDao.insertPlaces(response)
+
+            // Conversion : on extrait lat/lon du sous-objet "point"
+            val placesToSave = response.map { apiPlace ->
+                Place(
+                    id = apiPlace.xid,
+                    name = apiPlace.name,
+                    lat = apiPlace.point.lat,
+                    lon = apiPlace.point.lon
+                )
+            }
+
+            placeDao.insertPlaces(placesToSave)
         } catch (e: Exception) {
-            // Si le réseau échoue, on ne fait rien : l'utilisateur verra
-            // les anciennes données déjà présentes dans Room
+            android.util.Log.e("Repo", "Erreur: ${e.message}")
         }
     }
 }
