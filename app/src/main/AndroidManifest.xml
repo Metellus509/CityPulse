@@ -53,6 +53,17 @@
             </intent-filter>
         </activity>
 
+        <!-- AJOUTE CETTE LIGNE ICI -->
+        <activity
+            android:name=".ui.view.DetailsActivity"
+            android:label="Détails du lieu"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:parentActivityName=".ui.view.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".ui.view.MainActivity" />
+        </activity>
+
     </application>
 
 </manifest>

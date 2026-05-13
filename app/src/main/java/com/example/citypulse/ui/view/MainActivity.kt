@@ -4,20 +4,28 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.app.ActivityCompat
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.citypulse.R
 import com.example.citypulse.model.Place
 import com.example.citypulse.service.LocationService
+import com.example.citypulse.ui.adapter.PlaceAdapter
 import com.example.citypulse.ui.viewmodel.MainViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -25,115 +33,140 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var mMap: GoogleMap? = null
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
 
+    private lateinit var placeAdapter: PlaceAdapter
+    private lateinit var sheetBehavior: BottomSheetBehavior<ConstraintLayout>
+    private lateinit var sheetTitle: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
+        sheetTitle = findViewById(R.id.sheet_title)
+        val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
+        setupBottomSheet()
+        setupRecyclerView()
         setupObservers()
+    }
+
+    private fun setupBottomSheet() {
+        val bottomSheet = findViewById<ConstraintLayout>(R.id.bottom_sheet)
+        sheetBehavior = BottomSheetBehavior.from(bottomSheet)
+    }
+
+    private fun setupRecyclerView() {
+        val recyclerView = findViewById<RecyclerView>(R.id.recyclerViewPlaces)
+
+        placeAdapter = PlaceAdapter(emptyList()) { place ->
+            val pos = LatLng(place.lat, place.lon)
+            mMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(pos, 15f))
+
+            // Ouvrir l'écran de détails avec toutes les infos nécessaires
+            openDetails(place)
+        }
+
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = placeAdapter
+
+        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, t: RecyclerView.ViewHolder): Boolean = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                val place = placeAdapter.getPlaceAt(position)
+                // Inverser l'état favori via le ViewModel
+                viewModel.updateFavoriteStatus(place.id, !place.isFavorite)
+                Toast.makeText(this@MainActivity, "Favoris mis à jour", Toast.LENGTH_SHORT).show()
+            }
+        })
+        itemTouchHelper.attachToRecyclerView(recyclerView)
+    }
+
+    private fun openDetails(place: Place) {
+        val intent = Intent(this, DetailsActivity::class.java).apply {
+            putExtra("PLACE_ID", place.id)
+            putExtra("PLACE_NAME", place.name)
+            putExtra("IS_FAVORITE", place.isFavorite) // État envoyé pour l'étoile
+        }
+        startActivity(intent)
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // Configuration initiale sur Port-au-Prince
+        // --- RÉACTIVATION DES BOUTONS ET DU POINT BLEU ---
+        mMap?.uiSettings?.apply {
+            isZoomControlsEnabled = true  // Ajoute les boutons + et -
+            isCompassEnabled = true       // Ajoute la boussole
+            isMyLocationButtonEnabled = true // Ajoute le bouton "Ma position" (en haut à droite)
+        }
+
+        // Positionnement par défaut sur Port-au-Prince
         val pap = LatLng(18.5392, -72.335)
         mMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(pap, 12f))
 
-        mMap?.uiSettings?.isZoomControlsEnabled = true
-        mMap?.uiSettings?.isMapToolbarEnabled = true
-
-        // 1. Vérification et activation de la localisation
+        // Vérification et activation de la couche de localisation (le point bleu)
         enableUserLocation()
 
         // --- GESTION DES CLICS ---
+
+        // 1. Clic sur la bulle (Info Window) pour ouvrir les détails
+        mMap?.setOnInfoWindowClickListener { marker ->
+            val place = marker.tag as? Place
+            place?.let { openDetails(it) }
+        }
+
+        // 2. Clic sur le marqueur pour afficher le nom dans le BottomSheet
         mMap?.setOnMarkerClickListener { marker ->
             val place = marker.tag as? Place
             place?.let {
-                Toast.makeText(this, "Lieu : ${it.name}", Toast.LENGTH_SHORT).show()
+                sheetTitle.text = it.name
+                sheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
             }
-            false
-        }
-
-        mMap?.setOnInfoWindowClickListener { marker ->
-            val place = marker.tag as? Place
-            place?.let { ouvrirDetailsLieu(it) }
-        }
-
-        viewModel.placesByLiveData.value?.let { list ->
-            if (list.isNotEmpty()) updateMarkersOnMap(list)
+            false // Laisse Google Maps afficher la bulle d'info par défaut
         }
     }
 
-    // --- GESTION DE LA LOCALISATION ET PERMISSIONS ---
+    private fun setupObservers() {
+        viewModel.placesByLiveData.observe(this) { list ->
+            if (!list.isNullOrEmpty()) {
+                placeAdapter.updateData(list)
+                updateMarkers(list)
+            }
+        }
+    }
+
+    private fun updateMarkers(list: List<Place>) {
+        mMap?.clear()
+        for (place in list) {
+            val markerIcon = if (place.isFavorite) {
+                BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)
+            } else {
+                BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+            }
+
+            val marker = mMap?.addMarker(MarkerOptions()
+                .position(LatLng(place.lat, place.lon))
+                .title(place.name) // Ceci affiche le nom quand on clique sur le point
+                .snippet("Cliquez ici pour voir les détails") // Petit texte explicatif
+                .icon(markerIcon))
+
+            marker?.tag = place
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.placesByLiveData.value?.let { updateMarkers(it) }
+    }
 
     private fun enableUserLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // Demander la permission si elle n'est pas accordée
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                LOCATION_PERMISSION_REQUEST_CODE
-            )
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
             return
         }
-
-        // Si la permission est ok : activer le point bleu et lancer le service
         mMap?.isMyLocationEnabled = true
-        startPersistentLocationService()
-    }
-
-    private fun startPersistentLocationService() {
-        val serviceIntent = Intent(this, LocationService::class.java)
-        // Lancement du Foreground Service (obligatoire pour Android 8+)
-        startForegroundService(serviceIntent)
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // L'utilisateur a accepté : on active tout
-                enableUserLocation()
-            } else {
-                Toast.makeText(this, "La localisation est nécessaire pour CityPulse", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    // --- LOGIQUE DES MARQUEURS ---
-
-    private fun setupObservers() {
-        viewModel.placesByLiveData.observe(this) { listDeLieux ->
-            if (!listDeLieux.isNullOrEmpty()) {
-                Toast.makeText(this, "${listDeLieux.size} lieux à Port-au-Prince", Toast.LENGTH_SHORT).show()
-                updateMarkersOnMap(listDeLieux)
-            }
-        }
-    }
-
-    private fun updateMarkersOnMap(lieux: List<Place>) {
-        mMap?.let { map ->
-            map.clear()
-            for (place in lieux) {
-                if (place.lat != 0.0 && place.lon != 0.0) {
-                    val position = LatLng(place.lat, place.lon)
-                    val marker = map.addMarker(
-                        MarkerOptions()
-                            .position(position)
-                            .title(place.name)
-                            .snippet("Appuyez pour voir les détails")
-                    )
-                    marker?.tag = place
-                }
-            }
-        }
-    }
-
-    private fun ouvrirDetailsLieu(place: Place) {
-        Toast.makeText(this, "Détails : ${place.name}", Toast.LENGTH_LONG).show()
+        startService(Intent(this, LocationService::class.java))
     }
 }

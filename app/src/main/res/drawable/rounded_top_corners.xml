@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Couleur de fond du menu (Blanc) -->
+    <solid android:color="@android:color/white" />
+
+    <!-- Rayon des coins supérieurs (20dp pour l'effet arrondi) -->
+    <corners
+        android:topLeftRadius="20dp"
+        android:topRightRadius="20dp" />
+</shape>

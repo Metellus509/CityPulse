@@ -9,7 +9,7 @@ import com.example.citypulse.model.Place
 import com.example.citypulse.remote.RetrofitInstance
 import com.example.citypulse.repository.PlaceRepository
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.Dispatchers
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: PlaceRepository
@@ -43,6 +43,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val apiKey = "5ae2e3f221c38a28845f05b6948ae2162f94d9b315e19c7766940257"
 
             repository.refreshData(lat, lon, apiKey)
+        }
+    }
+
+    // Ajoute cette fonction à l'intérieur de ta classe MainViewModel
+    fun updateFavoriteStatus(placeId: String, isFavorite: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateFavorite(placeId, isFavorite)
         }
     }
 }
