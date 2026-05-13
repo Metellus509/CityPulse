@@ -59,11 +59,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerViewPlaces)
 
         placeAdapter = PlaceAdapter(emptyList()) { place ->
+            // ACTION : Cliquer dans la liste centre la carte sur le lieu
             val pos = LatLng(place.lat, place.lon)
-            mMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(pos, 15f))
+            mMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(pos, 16f))
 
-            // Ouvrir l'écran de détails avec toutes les infos nécessaires
-            openDetails(place)
+            // On met à jour le titre et on réduit le volet pour voir la carte
+            sheetTitle.text = place.name
+            sheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
         }
 
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -75,7 +77,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition
                 val place = placeAdapter.getPlaceAt(position)
-                // Inverser l'état favori via le ViewModel
                 viewModel.updateFavoriteStatus(place.id, !place.isFavorite)
                 Toast.makeText(this@MainActivity, "Favoris mis à jour", Toast.LENGTH_SHORT).show()
             }
@@ -87,7 +88,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val intent = Intent(this, DetailsActivity::class.java).apply {
             putExtra("PLACE_ID", place.id)
             putExtra("PLACE_NAME", place.name)
-            putExtra("IS_FAVORITE", place.isFavorite) // État envoyé pour l'étoile
+            putExtra("IS_FAVORITE", place.isFavorite)
         }
         startActivity(intent)
     }
@@ -95,36 +96,34 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // --- RÉACTIVATION DES BOUTONS ET DU POINT BLEU ---
         mMap?.uiSettings?.apply {
-            isZoomControlsEnabled = true  // Ajoute les boutons + et -
-            isCompassEnabled = true       // Ajoute la boussole
-            isMyLocationButtonEnabled = true // Ajoute le bouton "Ma position" (en haut à droite)
+            isZoomControlsEnabled = true
+            isMyLocationButtonEnabled = true
+            isCompassEnabled = true
         }
 
-        // Positionnement par défaut sur Port-au-Prince
+        // Décale les boutons au-dessus du BottomSheet (ajuste 350 selon ton écran)
+        mMap?.setPadding(0, 0, 0, 350)
+
+        // Position initiale sur Port-au-Prince
         val pap = LatLng(18.5392, -72.335)
         mMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(pap, 12f))
 
-        // Vérification et activation de la couche de localisation (le point bleu)
         enableUserLocation()
 
-        // --- GESTION DES CLICS ---
-
-        // 1. Clic sur la bulle (Info Window) pour ouvrir les détails
-        mMap?.setOnInfoWindowClickListener { marker ->
-            val place = marker.tag as? Place
-            place?.let { openDetails(it) }
-        }
-
-        // 2. Clic sur le marqueur pour afficher le nom dans le BottomSheet
+        // ACTION : Clic sur le marqueur ouvre directement les détails/notes
         mMap?.setOnMarkerClickListener { marker ->
             val place = marker.tag as? Place
             place?.let {
-                sheetTitle.text = it.name
-                sheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+                openDetails(it)
             }
-            false // Laisse Google Maps afficher la bulle d'info par défaut
+            true // On consomme l'événement pour gérer l'ouverture nous-mêmes
+        }
+
+        // Optionnel : Garder le clic sur la bulle d'info au cas où
+        mMap?.setOnInfoWindowClickListener { marker ->
+            val place = marker.tag as? Place
+            place?.let { openDetails(it) }
         }
     }
 
@@ -148,8 +147,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
             val marker = mMap?.addMarker(MarkerOptions()
                 .position(LatLng(place.lat, place.lon))
-                .title(place.name) // Ceci affiche le nom quand on clique sur le point
-                .snippet("Cliquez ici pour voir les détails") // Petit texte explicatif
+                .title(place.name)
+                .snippet("Cliquez pour noter")
                 .icon(markerIcon))
 
             marker?.tag = place
