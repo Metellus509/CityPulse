@@ -18,7 +18,8 @@ data class Place(
     var lon: Double = 0.0,
 
     // État du favori pour changer la couleur du pointeur
-    var isFavorite: Boolean = false
+    var isFavorite: Boolean = false,
+    val userNote: String? = ""
 )
 
 // Sert à lire le JSON d'OpenTripMap

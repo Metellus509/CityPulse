@@ -37,6 +37,16 @@ class PlaceRepository(private val apiService: APIService, private val placeDao: 
     suspend fun updateFavorite(placeId: String, isFavorite: Boolean) {
         placeDao.updateFavoriteStatus(placeId, isFavorite)
     }
+
+    // Dans PlaceRepository.kt
+
+    suspend fun updateNote(placeId: String, note: String) {
+        placeDao.updateNote(placeId, note)
+    }
+
+    suspend fun getPlaceById(placeId: String): Place? {
+        return placeDao.getPlaceById(placeId)
+    }
     /**
      * Nouvelle fonction pour mettre à jour l'état favori d'un lieu
      * Cela déclenchera automatiquement le LiveData et changera la couleur sur la carte

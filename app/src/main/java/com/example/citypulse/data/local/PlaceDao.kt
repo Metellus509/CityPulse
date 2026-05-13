@@ -15,4 +15,13 @@ interface PlaceDao {
 
     @Query("UPDATE places SET isFavorite = :isFav WHERE id = :placeId")
     suspend fun updateFavoriteStatus(placeId: String, isFav: Boolean)
+
+    @Query("UPDATE places SET userNote = :note WHERE id = :placeId")
+    suspend fun updateNote(placeId: String, note: String)
+
+    @Query("SELECT * FROM places WHERE id = :placeId LIMIT 1")
+    suspend fun getPlaceById(placeId: String): Place?
+    // Optionnel : Une requête pour récupérer un lieu spécifique par son ID
+    //@Query("SELECT * FROM places WHERE id = :placeId LIMIT 1")
+    //suspend fun getPlaceById(placeId: String): Place?
 }

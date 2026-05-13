@@ -6,8 +6,10 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.example.citypulse.R
 import com.example.citypulse.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 class DetailsActivity : AppCompatActivity() {
 
@@ -18,7 +20,7 @@ class DetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_details)
 
-        // Récupération des données passées par l'Intent
+        // 1. Récupération des données passées par l'Intent
         val name = intent.getStringExtra("PLACE_NAME") ?: "Lieu inconnu"
         val placeId = intent.getStringExtra("PLACE_ID") ?: ""
         isFavorite = intent.getBooleanExtra("IS_FAVORITE", false)
@@ -30,31 +32,44 @@ class DetailsActivity : AppCompatActivity() {
 
         detailName.text = name
 
-        // Initialisation de l'icône selon l'état actuel en base
+        // 2. CHARGEMENT INITIAL : Récupérer la note existante dans Room
+        lifecycleScope.launch {
+            // On récupère l'objet Place complet depuis la base de données locale
+            val place = viewModel.getPlaceById(placeId)
+
+            // Si une note existe déjà, on l'affiche dans le champ de texte
+            place?.userNote?.let { existingNote ->
+                editNote.setText(existingNote)
+            }
+        }
+
+        // Initialisation de l'icône favori (étoile)
         updateFavoriteUI(btnFavorite)
 
-        // Gestion du clic sur l'étoile
+        // 3. GESTION DU CLIC SUR L'ÉTOILE (Favoris)
         btnFavorite.setOnClickListener {
             isFavorite = !isFavorite
             updateFavoriteUI(btnFavorite)
 
-            // Mise à jour PERMANENTE dans la base de données
+            // Mise à jour permanente dans Room
             viewModel.updateFavoriteStatus(placeId, isFavorite)
 
             val msg = if (isFavorite) "Ajouté aux favoris" else "Retiré des favoris"
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
 
+        // 4. GESTION DE LA SAUVEGARDE (Note)
         btnSave.setOnClickListener {
             val note = editNote.text.toString()
-            if (note.isNotEmpty()) {
-                hideKeyboard()
-                // TODO: viewModel.saveNote(placeId, note)
-                Toast.makeText(this, "Note enregistrée", Toast.LENGTH_SHORT).show()
-                finish() // Retour à la carte
-            } else {
-                Toast.makeText(this, "Veuillez écrire une note", Toast.LENGTH_SHORT).show()
-            }
+
+            // On sauvegarde la note, même si elle est vide (pour pouvoir l'effacer)
+            viewModel.saveNote(placeId, note)
+
+            hideKeyboard()
+            Toast.makeText(this, "Note enregistrée pour $name", Toast.LENGTH_SHORT).show()
+
+            // On ferme l'activité pour revenir à la carte à Port-au-Prince
+            finish()
         }
     }
 

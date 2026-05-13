@@ -52,4 +52,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.updateFavorite(placeId, isFavorite)
         }
     }
+
+    fun saveNote(placeId: String, note: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateNote(placeId, note)
+        }
+    }
+
+    // Fonction pour récupérer la note existante
+    suspend fun getPlaceById(placeId: String): Place? {
+        return repository.getPlaceById(placeId)
+    }
 }

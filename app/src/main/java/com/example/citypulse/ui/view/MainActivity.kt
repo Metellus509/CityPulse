@@ -59,11 +59,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerViewPlaces)
 
         placeAdapter = PlaceAdapter(emptyList()) { place ->
-            // ACTION : Cliquer dans la liste centre la carte sur le lieu
+            // ACTION : Cliquer dans la liste centre la carte
             val pos = LatLng(place.lat, place.lon)
             mMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(pos, 16f))
 
-            // On met à jour le titre et on réduit le volet pour voir la carte
             sheetTitle.text = place.name
             sheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
         }
@@ -96,34 +95,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
+        // --- RE-AJOUT DE LA LOCALISATION ET DES BOUTONS ---
         mMap?.uiSettings?.apply {
             isZoomControlsEnabled = true
             isMyLocationButtonEnabled = true
             isCompassEnabled = true
         }
 
-        // Décale les boutons au-dessus du BottomSheet (ajuste 350 selon ton écran)
+        // Remonte les boutons pour ne pas être barrés par la liste
         mMap?.setPadding(0, 0, 0, 350)
 
         // Position initiale sur Port-au-Prince
         val pap = LatLng(18.5392, -72.335)
         mMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(pap, 12f))
 
+        // Active le point bleu (requiert permissions)
         enableUserLocation()
 
-        // ACTION : Clic sur le marqueur ouvre directement les détails/notes
+        // ACTION : Clic sur le marqueur ouvre les détails (pour ajouter une note)
         mMap?.setOnMarkerClickListener { marker ->
             val place = marker.tag as? Place
-            place?.let {
-                openDetails(it)
-            }
-            true // On consomme l'événement pour gérer l'ouverture nous-mêmes
-        }
-
-        // Optionnel : Garder le clic sur la bulle d'info au cas où
-        mMap?.setOnInfoWindowClickListener { marker ->
-            val place = marker.tag as? Place
             place?.let { openDetails(it) }
+            true
         }
     }
 
@@ -148,7 +141,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val marker = mMap?.addMarker(MarkerOptions()
                 .position(LatLng(place.lat, place.lon))
                 .title(place.name)
-                .snippet("Cliquez pour noter")
                 .icon(markerIcon))
 
             marker?.tag = place
@@ -165,6 +157,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
             return
         }
+        // ACTIVE LE POINT BLEU ICI
         mMap?.isMyLocationEnabled = true
         startService(Intent(this, LocationService::class.java))
     }
