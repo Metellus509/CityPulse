@@ -1,0 +1,5 @@
+# Fichier : local.properties
+# Ne jamais pousser ce fichier sur GitHub !
+
+MAPS_API_KEY=AIzaSyYourActualGoogleMapsKeyHere
+OPENTRIPMAP_API_KEY=op-your-actual-open-trip-map-key

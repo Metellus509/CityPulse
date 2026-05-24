@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -10,12 +12,29 @@ android {
 
     defaultConfig {
         applicationId = "com.example.citypulse"
-        minSdk = 26 // Requis par le sujet
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // ---- CONFIGURATION SÉCURISÉE DES CLÉS D'API ----
+        val properties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            properties.load(localPropertiesFile.inputStream())
+        }
+
+        // Récupération des clés (si vides, une chaîne vide est injectée par défaut)
+        val mapsKey = properties.getProperty("MAPS_API_KEY") ?: ""
+        val openTripKey = properties.getProperty("OPENTRIPMAP_API_KEY") ?: ""
+
+        // Injecte la clé Google Maps directement utilisable dans le Manifest avec ${mapsApiKey}
+        manifestPlaceholders["mapsApiKey"] = mapsKey
+
+        // Injecte la clé OpenTripMap accessible dans le code Kotlin via BuildConfig.OPENTRIPMAP_KEY
+        buildConfigField("String", "OPENTRIPMAP_KEY", "\"$openTripKey\"")
     }
 
     compileOptions {
@@ -28,19 +47,17 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true // Recommandé pour Empty Views Activity
-        compose = true // Permet d'utiliser les composables de Jetpack Compose
+        viewBinding = true
+        compose = true
+        buildConfig = true // 👈 INDISPENSABLE pour que BuildConfig.OPENTRIPMAP_KEY soit généré
     }
 
     composeOptions {
-        // Version du compilateur Kotlin Compose (compatible avec ton Kotlin)
         kotlinCompilerExtensionVersion = "1.5.8"
     }
 }
 
 dependencies {
-
-    // Les bibliothèques indispensables pour Compose Material3
     val composeBom = platform("androidx.compose:compose-bom:2024.02.01")
     implementation(composeBom)
 
@@ -72,7 +89,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.1.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
 
-    // Ajoute celle-ci pour utiliser "by viewModels()"
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation("androidx.activity:activity-ktx:1.8.2")
 }

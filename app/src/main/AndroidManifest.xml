@@ -32,7 +32,7 @@
         <!-- CLE GOOGLE MAPS -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyB-xum5GpBJfuzfdDJgzMOD2aVR3ayBnn8" />
+            android:value="${mapsApiKey}" />
 
         <!-- SERVICE DE LOCALISATION (Placé ici, dans application) -->
         <service
