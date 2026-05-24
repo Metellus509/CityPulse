@@ -11,7 +11,6 @@
         android:orientation="vertical"
         android:padding="20dp">
 
-        <!-- En-tête avec Nom et bouton Favori -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
@@ -46,16 +45,13 @@
             android:layout_marginVertical="20dp"
             android:background="#DDDDDD" />
 
-        <!-- Actions : Partage -->
         <Button
             android:id="@+id/btnShare"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Partager les coordonnées"
-            app:icon="@android:drawable/ic_menu_share" />
+            android:layout_marginTop="10dp"
+            android:text="Partager les coordonnées" />
 
-        <!-- Note Personnelle -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

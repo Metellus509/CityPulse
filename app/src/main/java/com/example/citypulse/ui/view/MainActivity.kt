@@ -88,6 +88,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             putExtra("PLACE_ID", place.id)
             putExtra("PLACE_NAME", place.name)
             putExtra("IS_FAVORITE", place.isFavorite)
+            putExtra("PLACE_LAT", place.lat) // Envoyé pour le partage
+            putExtra("PLACE_LON", place.lon) // Envoyé pour le partage
         }
         startActivity(intent)
     }
@@ -95,21 +97,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // --- RE-AJOUT DE LA LOCALISATION ET DES BOUTONS ---
+        // --- LOCALISATION ET BOUTONS DE NAVIGATION ---
         mMap?.uiSettings?.apply {
             isZoomControlsEnabled = true
             isMyLocationButtonEnabled = true
             isCompassEnabled = true
         }
 
-        // Remonte les boutons pour ne pas être barrés par la liste
+        // Remonte les boutons pour ne pas être barrés par la liste recyclée
         mMap?.setPadding(0, 0, 0, 350)
 
         // Position initiale sur Port-au-Prince
         val pap = LatLng(18.5392, -72.335)
         mMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(pap, 12f))
 
-        // Active le point bleu (requiert permissions)
+        // Active le point bleu de localisation utilisateur
         enableUserLocation()
 
         // ACTION : Clic sur le marqueur ouvre les détails (pour ajouter une note)
@@ -157,7 +159,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
             return
         }
-        // ACTIVE LE POINT BLEU ICI
         mMap?.isMyLocationEnabled = true
         startService(Intent(this, LocationService::class.java))
     }

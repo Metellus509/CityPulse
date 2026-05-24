@@ -1,6 +1,7 @@
 package com.example.citypulse.ui.view
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
@@ -25,19 +26,21 @@ class DetailsActivity : AppCompatActivity() {
         val placeId = intent.getStringExtra("PLACE_ID") ?: ""
         isFavorite = intent.getBooleanExtra("IS_FAVORITE", false)
 
+        // Coordonnées géographiques indispensables pour la génération du partage
+        val lat = intent.getDoubleExtra("PLACE_LAT", 0.0)
+        val lon = intent.getDoubleExtra("PLACE_LON", 0.0)
+
         val detailName = findViewById<TextView>(R.id.detailName)
         val btnFavorite = findViewById<ImageButton>(R.id.btnFavorite)
         val btnSave = findViewById<Button>(R.id.btnSaveNote)
+        val btnShare = findViewById<Button>(R.id.btnShare) // Changement en Button selon le XML
         val editNote = findViewById<EditText>(R.id.editUserNote)
 
         detailName.text = name
 
         // 2. CHARGEMENT INITIAL : Récupérer la note existante dans Room
         lifecycleScope.launch {
-            // On récupère l'objet Place complet depuis la base de données locale
             val place = viewModel.getPlaceById(placeId)
-
-            // Si une note existe déjà, on l'affiche dans le champ de texte
             place?.userNote?.let { existingNote ->
                 editNote.setText(existingNote)
             }
@@ -51,24 +54,43 @@ class DetailsActivity : AppCompatActivity() {
             isFavorite = !isFavorite
             updateFavoriteUI(btnFavorite)
 
-            // Mise à jour permanente dans Room
             viewModel.updateFavoriteStatus(placeId, isFavorite)
 
             val msg = if (isFavorite) "Ajouté aux favoris" else "Retiré des favoris"
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
 
-        // 4. GESTION DE LA SAUVEGARDE (Note)
+        // 4. PARTAGE PAR INTENT IMPLICITE (SMS, Email, Applications tierces)
+        btnShare.setOnClickListener {
+            val messageBody = """
+                Découvrez ce lieu d'intérêt sur CityPulse !
+                
+                Nom : $name
+                Coordonnées : $lat , $lon
+                
+                Voir sur la carte : https://maps.google.com/?q=$lat,$lon
+            """.trimIndent()
+
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "CityPulse - Partage de coordonnées : $name")
+                putExtra(Intent.EXTRA_TEXT, messageBody)
+            }
+
+            // Forcer l'affichage du sélecteur d'applications pour laisser le choix à l'étudiant/utilisateur
+            val chooser = Intent.createChooser(sendIntent, "Envoyer les coordonnées via :")
+            startActivity(chooser)
+        }
+
+        // 5. GESTION DE LA SAUVEGARDE (Note)
         btnSave.setOnClickListener {
             val note = editNote.text.toString()
 
-            // On sauvegarde la note, même si elle est vide (pour pouvoir l'effacer)
             viewModel.saveNote(placeId, note)
 
             hideKeyboard()
             Toast.makeText(this, "Note enregistrée pour $name", Toast.LENGTH_SHORT).show()
 
-            // On ferme l'activité pour revenir à la carte à Port-au-Prince
             finish()
         }
     }
