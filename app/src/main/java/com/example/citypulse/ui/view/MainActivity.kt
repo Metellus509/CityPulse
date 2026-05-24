@@ -1,8 +1,12 @@
 package com.example.citypulse.ui.view
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.TextView
 import android.widget.Toast
@@ -48,6 +52,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         setupBottomSheet()
         setupRecyclerView()
         setupObservers()
+        createNotificationChannels()
     }
 
     private fun setupBottomSheet() {
@@ -59,7 +64,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerViewPlaces)
 
         placeAdapter = PlaceAdapter(emptyList()) { place ->
-            // ACTION : Cliquer dans la liste centre la carte
             val pos = LatLng(place.lat, place.lon)
             mMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(pos, 16f))
 
@@ -88,8 +92,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             putExtra("PLACE_ID", place.id)
             putExtra("PLACE_NAME", place.name)
             putExtra("IS_FAVORITE", place.isFavorite)
-            putExtra("PLACE_LAT", place.lat) // Envoyé pour le partage
-            putExtra("PLACE_LON", place.lon) // Envoyé pour le partage
+            putExtra("PLACE_LAT", place.lat)
+            putExtra("PLACE_LON", place.lon)
         }
         startActivity(intent)
     }
@@ -97,28 +101,45 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // --- LOCALISATION ET BOUTONS DE NAVIGATION ---
         mMap?.uiSettings?.apply {
             isZoomControlsEnabled = true
             isMyLocationButtonEnabled = true
             isCompassEnabled = true
         }
 
-        // Remonte les boutons pour ne pas être barrés par la liste recyclée
         mMap?.setPadding(0, 0, 0, 350)
 
-        // Position initiale sur Port-au-Prince
         val pap = LatLng(18.5392, -72.335)
         mMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(pap, 12f))
 
-        // Active le point bleu de localisation utilisateur
         enableUserLocation()
 
-        // ACTION : Clic sur le marqueur ouvre les détails (pour ajouter une note)
         mMap?.setOnMarkerClickListener { marker ->
             val place = marker.tag as? Place
             place?.let { openDetails(it) }
             true
+        }
+    }
+
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            val trackingChannel = NotificationChannel(
+                "citypulse_location",
+                "Localisation CityPulse",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            manager.createNotificationChannel(trackingChannel)
+
+            val proximityChannel = NotificationChannel(
+                "PROXIMITY_CHANNEL",
+                "Alertes de proximité",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Notifications lorsqu'un lieu d'intérêt est à moins de 500m"
+            }
+            manager.createNotificationChannel(proximityChannel)
         }
     }
 
@@ -155,11 +176,46 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun enableUserLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+        val permissions = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        val missingPermissions = permissions.filter {
+            ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (missingPermissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), LOCATION_PERMISSION_REQUEST_CODE)
             return
         }
-        mMap?.isMyLocationEnabled = true
-        startService(Intent(this, LocationService::class.java))
+
+        // Si les permissions sont déjà acceptées précédemment
+        activateLocationFeatures()
+    }
+
+    // 👈 AJOUT MAJEUR : Cette fonction force le point bleu à s'activer dès l'autorisation obtenue
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                activateLocationFeatures()
+            } else {
+                Toast.makeText(this, "Localisation refusée : le point bleu est désactivé.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // 👈 AJOUT MAJEUR : Centralisation de l'activation pour éviter la redondance
+    private fun activateLocationFeatures() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            mMap?.isMyLocationEnabled = true // Force l'apparition du point bleu
+            startService(Intent(this, LocationService::class.java)) // Lance le service de traque
+        }
     }
 }
